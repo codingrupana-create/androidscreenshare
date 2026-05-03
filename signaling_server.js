@@ -5,11 +5,16 @@ const { Server } = require("socket.io");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
-  cors: { origin: "*" }
+  cors: { origin: "*" },
+  allowEIO3: true // Compatibility with older Java clients
 });
 
 const PORT = process.env.PORT || 3000;
 const rooms = {};
+
+app.get("/", (req, res) => {
+  res.send("Signaling server is running!");
+});
 
 io.on("connection", (socket) => {
   console.log("User connected:", socket.id);
@@ -17,6 +22,7 @@ io.on("connection", (socket) => {
   socket.on("join", (roomId) => {
     socket.join(roomId);
     console.log(`User ${socket.id} joined room ${roomId}`);
+    socket.emit("joined", roomId); // Confirm join to sender
     socket.to(roomId).emit("user_joined");
   });
 
@@ -28,8 +34,9 @@ io.on("connection", (socket) => {
 
   socket.on("verify_pin", (data) => {
     const { roomId, pin } = data;
-    const isValid = rooms[roomId] === pin;
-    console.log(`PIN verification for room ${roomId}: ${pin} -> ${isValid}`);
+    const storedPin = rooms[roomId];
+    const isValid = storedPin === pin;
+    console.log(`PIN verification for room ${roomId}: input=${pin}, stored=${storedPin} -> ${isValid}`);
     socket.emit("pin_validation", isValid);
   });
 
